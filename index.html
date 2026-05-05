@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORB Score Extractor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --bg2: #131620;
+    --bg3: #1a1e2c;
+    --bg4: #222840;
+    --border: #2a3050;
+    --border2: #3a4570;
+    --accent: #4f8ef7;
+    --accent2: #2d6be4;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #e8ecf4;
+    --text2: #8892aa;
+    --text3: #556080;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+
+  .logo span { color: var(--text2); font-weight: 400; }
+
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .main {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px 24px;
+  }
+
+  .top-bar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+
+  .top-bar label {
+    font-size: 12px;
+    color: var(--text2);
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 6px;
+  }
+
+  .top-bar input[type="date"] {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .top-bar input[type="date"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 12px;
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg2);
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,142,247,0.06);
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+
+  .upload-zone h3 {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .upload-zone p {
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .queue-section {
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  .queue-grid {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .queue-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    position: relative;
+    min-width: 160px;
+  }
+
+  .queue-item img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .queue-item .name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+  }
+
+  .queue-item .status {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-top: 3px;
+  }
+  .status.pending { background: rgba(85,96,128,0.3); color: var(--text3); }
+  .status.processing { background: rgba(79,142,247,0.2); color: var(--accent); }
+  .status.done { background: rgba(34,197,94,0.15); color: var(--green); }
+  .status.error { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .remove-btn {
+    position: absolute;
+    top: 4px; right: 4px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px;
+  }
+  .remove-btn:hover { color: var(--red); }
+
+  .actions-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 9px 20px;
+    border-radius: 7px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border2);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,0.06); }
+  .btn-outline:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border-color: rgba(239,68,68,0.3);
+  }
+  .btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+  .progress-bar-wrap {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg3);
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    min-width: 80px;
+  }
+
+  .table-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .table-header h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+
+  .badge {
+    background: rgba(79,142,247,0.15);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .table-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  thead tr {
+    background: var(--bg3);
+  }
+
+  th {
+    padding: 10px 12px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid rgba(42,48,80,0.5);
+    position: relative;
+    cursor: default;
+  }
+
+  th:first-child { text-align: left; }
+  th:last-child { border-right: none; }
+
+  td {
+    padding: 9px 12px;
+    text-align: center;
+    border-bottom: 1px solid rgba(42,48,80,0.4);
+    border-right: 1px solid rgba(42,48,80,0.3);
+    color: var(--text);
+  }
+
+  td:first-child { text-align: left; }
+  td:last-child { border-right: none; }
+
+  tbody tr:hover { background: rgba(79,142,247,0.04); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .cell-date { color: var(--text2); font-size: 12px; }
+  .cell-ticker { color: var(--accent); font-weight: 600; font-size: 13px; }
+  .cell-score { font-weight: 600; }
+  .cell-rank { color: var(--yellow); font-weight: 500; }
+
+  .cell-success.yes { color: var(--green); font-weight: 600; }
+  .cell-success.no { color: var(--red); font-weight: 600; }
+  .cell-success.blank { color: var(--text3); }
+
+  .cell-num { color: var(--text); }
+  .cell-neg { color: var(--red); }
+  .cell-pos { color: var(--green); }
+
+  .editable {
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 2px 4px;
+    transition: background 0.15s;
+  }
+  .editable:hover { background: rgba(79,142,247,0.12); }
+
+  input.inline-edit {
+    background: var(--bg4);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    width: 80px;
+    text-align: center;
+    outline: none;
+  }
+
+  .delete-row-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+  .delete-row-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text3);
+  }
+  .empty-state .big { font-size: 36px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  .eod-loading { color: var(--text3); font-size: 11px; }
+  .eod-fetched { color: var(--green); }
+  .eod-error { color: var(--red); font-size: 11px; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .toast.show { display: block; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  .copy-btn-row {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg3);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(79,142,247,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  .info-pill {
+    background: rgba(245,158,11,0.12);
+    color: var(--yellow);
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(245,158,11,0.25);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ORB<span>/</span>SCORE <span style="color:var(--text3)">·</span> <span>EXTRACTOR</span></div>
+  <div class="info-pill">⚡ AI-Powered OCR</div>
+  <div class="header-actions">
+    <span id="rowCount" style="font-family:var(--mono);font-size:12px;color:var(--text3)">0 rows</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Top bar: date + fetch EOD -->
+  <div class="top-bar">
+    <label>Trading Date</label>
+    <input type="date" id="tradingDate" />
+    <button class="btn btn-outline" onclick="fetchAllEOD()" id="fetchEODBtn" disabled>
+      <span>↓</span> Fetch EOD Prices
+    </button>
+    <span id="eodStatus" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
+  </div>
+
+  <!-- Upload zone -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(this.files)">
+    <div class="upload-icon">📂</div>
+    <h3>Drop ORB Score screenshots here</h3>
+    <p>PNG, JPG, WebP — multiple files at once supported</p>
+  </div>
+
+  <!-- Queue -->
+  <div class="queue-section" id="queueSection" style="display:none">
+    <div class="section-title">Upload Queue</div>
+    <div class="queue-grid" id="queueGrid"></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions-bar">
+    <button class="btn btn-primary" id="processBtn" onclick="processAll()" disabled>
+      <span class="spinner" id="processSpinner" style="display:none"></span>
+      <span id="processBtnText">▶ Extract with AI</span>
+    </button>
+    <div class="progress-bar-wrap" id="progressWrap" style="display:none">
+      <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+    <span class="progress-label" id="progressLabel"></span>
+    <button class="btn btn-outline" id="exportBtn" onclick="exportExcel()" disabled>
+      ⬇ Export Excel
+    </button>
+    <button class="btn btn-danger" id="clearBtn" onclick="clearAll()" style="margin-left:auto">
+      ✕ Clear All
+    </button>
+  </div>
+
+  <!-- Results table -->
+  <div class="table-section">
+    <div class="table-header">
+      <h2>EXTRACTED DATA</h2>
+      <span class="badge" id="tableCount">0 stocks</span>
+      <div class="table-actions">
+        <button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="copyTableTSV()">⎘ Copy Table</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Ticker</th>
+            <th>ORB Open</th>
+            <th>EOD Close</th>
+            <th>Score (-30→100)</th>
+            <th>Rank</th>
+            <th>Success?</th>
+            <th>1.RVOL (/4)</th>
+            <th>2.MACD (/10)</th>
+            <th>3.MACD vs ETF (/4)</th>
+            <th>4.Outperf ETF (/17)</th>
+            <th>5.PreMkt High (/8)</th>
+            <th>6.Candle Qual (/10)</th>
+            <th>7.MA Stack (/8)</th>
+            <th>8.Daily Constr (/7)</th>
+            <th>9.RS vs ETF (/10)</th>
+            <th>10.VolP at (/4)</th>
+            <th>11.ADR Health (/4)</th>
+            <th>12a.Hist EOD (/2)</th>
+            <th>12b.Hist NoDip (/12)</th>
+            <th>Pen: Resist</th>
+            <th>Pen: ETF Ext</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr id="emptyRow">
+            <td colspan="23">
+              <div class="empty-state">
+                <div class="big">📊</div>
+                <p>Upload screenshots and click "Extract with AI" to populate the table</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="copy-btn-row" id="copyRow" style="display:none">
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="copyTableTSV()">⎘ Copy All (TSV)</button>
+      <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">Paste directly into Excel</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLUMNS = [
+  'date','ticker','orbOpen','eodClose','score','rank','success',
+  'rvol','macd','macdEtf','outperf','preMkt','candleQual','maStack',
+  'dailyConstr','rsEtf','volp','adrHealth','histEod','histNoDip',
+  'penResist','penEtfExt'
+];
+
+let queueItems = [];
+let tableRows = [];
+
+// Date default today
+const today = new Date();
+document.getElementById('tradingDate').value = today.toISOString().split('T')[0];
+
+// Drag over
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
+    const id = Date.now() + Math.random();
+    const url = URL.createObjectURL(f);
+    queueItems.push({ id, file: f, url, status: 'pending' });
+  }
+  renderQueue();
+  document.getElementById('processBtn').disabled = queueItems.length === 0;
+  document.getElementById('queueSection').style.display = queueItems.length ? 'block' : 'none';
+}
+
+function renderQueue() {
+  const grid = document.getElementById('queueGrid');
+  grid.innerHTML = queueItems.map(item => `
+    <div class="queue-item" id="qi-${item.id}">
+      <img src="${item.url}" alt="">
+      <div>
+        <div class="name">${item.file.name}</div>
+        <div class="status ${item.status}">${item.status}</div>
+      </div>
+      <button class="remove-btn" onclick="removeItem(${item.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeItem(id) {
+  queueItems = queueItems.filter(i => i.id !== id);
+  renderQueue();
+  document.getElementById('processBtn').disabled = queueItems.length === 0;
+  document.getElementById('queueSection').style.display = queueItems.length ? 'block' : 'none';
+}
+
+async function processAll() {
+  const pending = queueItems.filter(i => i.status === 'pending');
+  if (!pending.length) return;
+  
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  document.getElementById('processSpinner').style.display = 'inline-block';
+  document.getElementById('processBtnText').textContent = 'Extracting...';
+  document.getElementById('progressWrap').style.display = 'block';
+
+  const tradingDate = document.getElementById('tradingDate').value;
+  let done = 0;
+
+  for (const item of pending) {
+    setItemStatus(item.id, 'processing');
+    try {
+      const base64 = await fileToBase64(item.file);
+      const extracted = await extractWithClaude(base64, item.file.type, tradingDate);
+      if (extracted) {
+        tableRows.push(extracted);
+        renderTable();
+      }
+      setItemStatus(item.id, 'done');
+    } catch(e) {
+      console.error(e);
+      setItemStatus(item.id, 'error');
+    }
+    done++;
+    const pct = Math.round((done / pending.length) * 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = `${done}/${pending.length}`;
+  }
+
+  document.getElementById('processSpinner').style.display = 'none';
+  document.getElementById('processBtnText').textContent = '▶ Extract with AI';
+  btn.disabled = false;
+  document.getElementById('exportBtn').disabled = tableRows.length === 0;
+  document.getElementById('fetchEODBtn').disabled = tableRows.length === 0;
+  showToast(`Extracted ${done} stock(s) successfully`, 'success');
+}
+
+function setItemStatus(id, status) {
+  queueItems = queueItems.map(i => i.id === id ? { ...i, status } : i);
+  const el = document.getElementById(`qi-${id}`);
+  if (el) {
+    const s = el.querySelector('.status');
+    s.className = `status ${status}`;
+    s.textContent = status;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function extractWithClaude(base64Data, mediaType, tradingDate) {
+  const prompt = `You are analyzing an ORB (Opening Range Breakout) score card image for a stock.
+
+Extract ALL of the following fields from the image. Return ONLY a valid JSON object, no explanation, no markdown.
+
+Fields to extract:
+- date: trading date (use "${tradingDate}" if you can't see a date in the image)
+- ticker: the stock ticker symbol shown in the HEADER of the scorecard, immediately after "ORB SCORE |" at the top left (e.g. "ADEA", "ANET"). This is NOT "QQQ" — QQQ is just the benchmark ETF used for comparison throughout the card. The ticker is the stock being analyzed, displayed prominently in the top-left header area.
+- orbOpen: ORB Open price as number
+- score: Score number (e.g. 50)
+- rank: Rank letter (e.g. "C")
+- rvol: value for 1.RVOL (/4)
+- macd: value for 2.MACD (/10) 
+- macdEtf: value for 3.MACD vs ETF (/4)
+- outperf: value for 4.Outperf ETF (/17)
+- preMkt: value for 5.PreMkt High (/8)
+- candleQual: value for 6.Candle Quality (/10)
+- maStack: value for 7.MA Stack (/8)
+- dailyConstr: value for 8.Daily Construct (/7)
+- rsEtf: value for 9.RS vs ETF/QQQ (/10)
+- volp: value for 10.VolP at (/4)
+- adrHealth: value for 11.ADR Health (/4)
+- histEod: value for 12a.Hist EOD (/2)
+- histNoDip: value for 12b.Hist NoDip (/12)
+- penResist: Penalty Resistance value (negative number or 0)
+- penEtfExt: Penalty ETF Extended value (negative number or 0)
+
+Important notes:
+- All numeric fields should be numbers (not strings)
+- penResist and penEtfExt are usually 0 or negative numbers
+- If a field is not visible or not applicable, use null
+- DO NOT include eodClose or success fields
+- Return ONLY the JSON object`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  const data = await response.json();
+  const text = data.content?.map(c => c.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  parsed.eodClose = null;
+  parsed.success = '';
+  return parsed;
+}
+
+async function fetchAllEOD() {
+  const date = document.getElementById('tradingDate').value;
+  if (!date) { showToast('Please set a trading date first', 'error'); return; }
+  
+  const btn = document.getElementById('fetchEODBtn');
+  btn.disabled = true;
+  document.getElementById('eodStatus').textContent = 'Fetching prices...';
+
+  let fetched = 0;
+  for (let i = 0; i < tableRows.length; i++) {
+    const row = tableRows[i];
+    if (!row.ticker) continue;
+    try {
+      const price = await fetchEODPrice(row.ticker, date);
+      tableRows[i].eodClose = price;
+      fetched++;
+    } catch(e) {
+      tableRows[i].eodClose = 'N/A';
+    }
+    renderTable();
+  }
+
+  document.getElementById('eodStatus').textContent = `✓ ${fetched} prices fetched`;
+  btn.disabled = false;
+  showToast(`Fetched EOD prices for ${fetched} stocks`, 'success');
+}
+
+async function fetchEODPrice(ticker, date) {
+  // Use Yahoo Finance via a CORS-friendly approach
+  // We use the chart API which has CORS enabled
+  const d = new Date(date);
+  const ts1 = Math.floor(d.getTime() / 1000) - 86400;
+  const ts2 = Math.floor(d.getTime() / 1000) + 86400;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${ts1}&period2=${ts2}&interval=1d`;
+  
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+    if (closes && closes.length > 0) {
+      const validClose = closes.filter(c => c !== null).pop();
+      return validClose ? Math.round(validClose * 100) / 100 : null;
+    }
+  } catch(e) {}
+  
+  // Fallback: try v7 API
+  try {
+    const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${ts1}&period2=${ts2}&interval=1d`;
+    const resp2 = await fetch(url2);
+    const data2 = await resp2.json();
+    const closes2 = data2?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+    if (closes2 && closes2.length > 0) {
+      const validClose = closes2.filter(c => c !== null).pop();
+      return validClose ? Math.round(validClose * 100) / 100 : null;
+    }
+  } catch(e) {}
+  
+  return null;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('resultsBody');
+  const count = tableRows.length;
+  document.getElementById('tableCount').textContent = `${count} stock${count !== 1 ? 's' : ''}`;
+  document.getElementById('rowCount').textContent = `${count} rows`;
+  
+  if (count === 0) {
+    tbody.innerHTML = `<tr id="emptyRow"><td colspan="23"><div class="empty-state"><div class="big">📊</div><p>Upload screenshots and click "Extract with AI" to populate the table</p></div></td></tr>`;
+    document.getElementById('copyRow').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('copyRow').style.display = 'flex';
+
+  tbody.innerHTML = tableRows.map((row, idx) => {
+    const numCell = (v, max) => {
+      if (v === null || v === undefined) return `<td class="cell-num" style="color:var(--text3)">—</td>`;
+      const n = parseFloat(v);
+      if (isNaN(n)) return `<td class="cell-num">${v}</td>`;
+      const pct = max ? n / max : 0;
+      const color = n < 0 ? 'var(--red)' : pct > 0.7 ? 'var(--green)' : pct > 0.4 ? 'var(--text)' : 'var(--text2)';
+      return `<td class="cell-num" style="color:${color}">${n}</td>`;
+    };
+    const penCell = (v) => {
+      if (v === null || v === undefined || v === 0) return `<td class="cell-num" style="color:var(--text3)">0</td>`;
+      const n = parseFloat(v);
+      return `<td class="cell-neg">${n}</td>`;
+    };
+    const successClass = row.success === 'Yes' ? 'yes' : row.success === 'No' ? 'no' : 'blank';
+    const eodDisplay = row.eodClose === null ? '<span class="eod-loading">—</span>' 
+      : row.eodClose === 'N/A' ? '<span class="eod-error">N/A</span>'
+      : `<span class="eod-fetched">${row.eodClose}</span>`;
+
+    return `<tr>
+      <td class="cell-date">${row.date || '—'}</td>
+      <td class="cell-ticker">${row.ticker || '—'}</td>
+      <td class="cell-num">${row.orbOpen ?? '—'}</td>
+      <td>${eodDisplay}</td>
+      <td class="cell-score" style="color:${getScoreColor(row.score)}">${row.score ?? '—'}</td>
+      <td class="cell-rank">${row.rank || '—'}</td>
+      <td class="cell-success ${successClass}">${row.success || '—'}</td>
+      ${numCell(row.rvol, 4)}
+      ${numCell(row.macd, 10)}
+      ${numCell(row.macdEtf, 4)}
+      ${numCell(row.outperf, 17)}
+      ${numCell(row.preMkt, 8)}
+      ${numCell(row.candleQual, 10)}
+      ${numCell(row.maStack, 8)}
+      ${numCell(row.dailyConstr, 7)}
+      ${numCell(row.rsEtf, 10)}
+      ${numCell(row.volp, 4)}
+      ${numCell(row.adrHealth, 4)}
+      ${numCell(row.histEod, 2)}
+      ${numCell(row.histNoDip, 12)}
+      ${penCell(row.penResist)}
+      ${penCell(row.penEtfExt)}
+      <td><button class="delete-row-btn" onclick="deleteRow(${idx})" title="Delete row">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function getScoreColor(score) {
+  if (score === null || score === undefined) return 'var(--text3)';
+  const n = parseFloat(score);
+  if (n >= 70) return 'var(--green)';
+  if (n >= 50) return 'var(--yellow)';
+  if (n >= 30) return 'var(--text)';
+  return 'var(--red)';
+}
+
+function deleteRow(idx) {
+  tableRows.splice(idx, 1);
+  renderTable();
+  document.getElementById('exportBtn').disabled = tableRows.length === 0;
+  document.getElementById('fetchEODBtn').disabled = tableRows.length === 0;
+}
+
+function clearAll() {
+  if (tableRows.length > 0 && !confirm('Clear all extracted data?')) return;
+  tableRows = [];
+  queueItems = [];
+  renderQueue();
+  renderTable();
+  document.getElementById('queueSection').style.display = 'none';
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('exportBtn').disabled = true;
+  document.getElementById('fetchEODBtn').disabled = true;
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressLabel').textContent = '';
+  document.getElementById('eodStatus').textContent = '';
+}
+
+function copyTableTSV() {
+  if (!tableRows.length) return;
+  const headers = [
+    'Date','Ticker','ORB Open','EOD Close','Score','Rank','Success?',
+    '1.RVOL(/4)','2.MACD(/10)','3.MACD vs ETF(/4)','4.Outperf ETF(/17)',
+    '5.PreMkt High(/8)','6.Candle Qual(/10)','7.MA Stack(/8)',
+    '8.Daily Constr(/7)','9.RS vs ETF(/10)','10.VolP at(/4)',
+    '11.ADR Health(/4)','12a.Hist EOD(/2)','12b.Hist NoDip(/12)',
+    'Pen: Resist','Pen: ETF Ext'
+  ];
+  const lines = [headers.join('\t')];
+  for (const r of tableRows) {
+    lines.push([
+      r.date||'', r.ticker||'', r.orbOpen??'', r.eodClose??'',
+      r.score??'', r.rank||'', r.success||'',
+      r.rvol??'', r.macd??'', r.macdEtf??'', r.outperf??'',
+      r.preMkt??'', r.candleQual??'', r.maStack??'',
+      r.dailyConstr??'', r.rsEtf??'', r.volp??'',
+      r.adrHealth??'', r.histEod??'', r.histNoDip??'',
+      r.penResist??'', r.penEtfExt??''
+    ].join('\t'));
+  }
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => showToast('Table copied to clipboard', 'success'))
+    .catch(() => showToast('Copy failed — try manually', 'error'));
+}
+
+function exportExcel() {
+  if (!tableRows.length) return;
+  const headers = [
+    'Date','Ticker','ORB Open','EOD Close','Score (-30→100)','Rank','Success?',
+    '1.RVOL (/4)','2.MACD (/10)','3.MACD vs ETF (/4)','4.Outperf ETF (/17)',
+    '5.PreMkt High (/8)','6.Candle Qual (/10)','7.MA Stack (/8)',
+    '8.Daily Constr (/7)','9.RS vs ETF (/10)','10.VolP at (/4)',
+    '11.ADR Health (/4)','12a.Hist EOD (/2)','12b.Hist NoDip (/12)',
+    'Pen: Resist','Pen: ETF Ext'
+  ];
+  const data = [headers, ...tableRows.map(r => [
+    r.date||'', r.ticker||'', r.orbOpen??'', r.eodClose??'',
+    r.score??'', r.rank||'', r.success||'',
+    r.rvol??'', r.macd??'', r.macdEtf??'', r.outperf??'',
+    r.preMkt??'', r.candleQual??'', r.maStack??'',
+    r.dailyConstr??'', r.rsEtf??'', r.volp??'',
+    r.adrHealth??'', r.histEod??'', r.histNoDip??'',
+    r.penResist??'', r.penEtfExt??''
+  ])];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = headers.map((h,i) => ({ wch: i < 2 ? 12 : 10 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ORB Scores');
+  const date = document.getElementById('tradingDate').value || 'export';
+  XLSX.writeFile(wb, `ORB_Scores_${date}.xlsx`);
+  showToast('Excel file downloaded', 'success');
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// Init
+renderTable();
+</script>
+</body>
+</html>
